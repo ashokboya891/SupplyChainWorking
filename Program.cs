@@ -11,6 +11,9 @@ using SupplyChain.ServiceContracts;
 using SupplyChain.Services;
 using SupplyChain.DatabaseContext;
 using System.Text.Json.Serialization;
+using SupplyChain.IServiceContracts;
+using SupplyChain.IRepoContracts;
+using SupplyChain.RepoContracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,12 +72,19 @@ builder.Services.AddAuthorization(opt =>
 
 });
 
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = "localhost:6379"; // Redis server URL
+    options.InstanceName = "SampleInstance_"; // Optional prefix for keys
+});
+
 // 🔹 Add Database Context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("con")));
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+builder.Services.AddScoped<ICartService,CartService>();   
+builder.Services.AddScoped<ICartRepository,CartRepository>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policyBuilder =>

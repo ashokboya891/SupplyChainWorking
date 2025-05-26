@@ -29,56 +29,26 @@ namespace SupplyChain.Controllers
             this._context = context;
         }
 
-        //[HttpGet("[action]")]
-        //public async Task<IActionResult> GetPendingRequests()
-        //{
-        //    var result = await _context.RestockRequests
-        //     .Include(r => r.Product)
-        //     .Where(r => r.Status <0).Select(r => new RestockRequestDto
-        //     {
-        //         RequestId = r.RequestId,
-        //         Status = r.Status,
-        //         @ShortageQty = r.ShortageQty,
-        //         ProductName = r.Product.Name,
-        //         ProductId = r.ProductId
-        //     })
-        //        .OrderByDescending(r => r.RequestId)
-        //        .ToListAsync();
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetPendingRequests()
+        {
+            var result = await _context.RestockRequests
+             .Where(r => r.Status=="Pending").Select(r => new RestockRequestDto
+             {
+                 RequestId = r.RequestId,
+                 Status = r.Status,
+                 @ShortageQty = r.ShortageQty,
+                 ProductName = r.Product.Name,
+                 ProductId = r.ProductId
+             })
+                .OrderByDescending(r => r.RequestId)
+                .ToListAsync();
 
-        //    if (result == null )
-        //        return NotFound("No matching restock request found.");
+            if (result == null)
+                return NotFound("No matching restock request found.");
 
-        //    return Ok(result);
-        //}
-        //[HttpPost("[action]")]
-        //public async Task<IActionResult> FullFillRequest([FromBody]StockFillDto dto)
-        //{
-        //  var user=  User.FindFirst(ClaimTypes.NameIdentifier);
-        //    if (user == null)
-        //        return NotFound("Admin not found.");
-        //    try
-        //    {
-        //        var sql = "EXEC sp_RefillStockMain @RequestId, @ProductId, @Quantity, @AdminId @Status";
-
-        //        var parameters = new[]
-        //        {
-        //    new SqlParameter("@RequestId", dto.RequestId),
-        //    new SqlParameter("@ProductId", dto.ProductId),
-        //    new SqlParameter("@Quantity", dto.Quantity),
-        //    new SqlParameter("@AdminId", dto.AdminId),
-        //    new SqlParameter("@Status", Enum.RestockStatus.Completed)
-
-        //   };
-
-        //        await _context.Database.ExecuteSqlRawAsync(sql, parameters);
-
-        //        return Ok("Stock refilled successfully.");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Error: {ex.Message}");
-        //    }   
-        //}
+            return Ok(result);
+        }
 
         [HttpPost("[action]")]
         public async Task<IActionResult> FullFillRequest([FromBody] StockFillDto dto)
@@ -119,20 +89,6 @@ namespace SupplyChain.Controllers
             }
         }
 
-        [HttpPost("place-order")]
-        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderDto dto)
-        {
-            var parameters = new[]
-            {
-            new SqlParameter("@UserId", dto.UserId),
-            new SqlParameter("@OrderDate", DateTime.UtcNow),
-            OrderService.GetOrderItemsTVP(dto.Items)  // Pass TVP here
-        };
-
-            await _context.Database.ExecuteSqlRawAsync("EXEC PlaceOrder @UserId, @OrderDate, @OrderItems", parameters);
-
-            return Ok("Order placed successfully.");
-        }
 
 
         [HttpGet("[action]")]
