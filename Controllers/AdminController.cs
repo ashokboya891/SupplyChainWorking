@@ -39,7 +39,9 @@ namespace SupplyChain.Controllers
                  Status = r.Status,
                  @ShortageQty = r.ShortageQty,
                  ProductName = r.Product.Name,
-                 ProductId = r.ProductId
+                 ProductId = r.ProductId,
+                 threshold = r.Product.Threshold,
+                 CreatedDate=r.CreatedDate
              })
                 .OrderByDescending(r => r.RequestId)
                 .ToListAsync();
@@ -89,7 +91,55 @@ namespace SupplyChain.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetPaidUnpaidTransactions(string status)
+        {
+            if(status!=null && status=="Paid")
+            {
+                var paidData=await _context.Orders.Where(o => o.PaymentStatus == "Paid").Include(o => o.OrderItems)
+                    .Select(o => new OrderDto
+                    {
+                        OrderId = o.OrderId,
+                        UserId = o.UserId,
+                        RazorpayOrderId = o.RazorpayOrderId,
+                        RazorpayPaymentId = o.RazorpayPaymentId,
+                        PaymentStatus = o.PaymentStatus,
+                        TotalAmount = o.TotalAmount,
+                        OrderDate = o.OrderDate,
+                        PaidAt=o.PaidAt,
+                        OrderItems= o.OrderItems.Select(oi => new OrderItemDto
+                        {
+                            ProductId = oi.ProductId,
+                            Quantity = oi.Quantity,
+                            UnitPrice = oi.UnitPrice,
+                            ProductName = oi.Product.Name
+                        }).ToList()
 
+                    })
+                    .ToListAsync();
+                return Ok(paidData);
+            }
+            else if (status != null && status == "Unpaid")
+            {
+                var unpaidData = await _context.Orders.Where(o => o.PaymentStatus == "Pending")
+                    .Select(o => new OrderDto
+                    {
+                        OrderId = o.OrderId,
+                        UserId = o.UserId,
+                        RazorpayOrderId = o.RazorpayOrderId,
+                        RazorpayPaymentId = o.RazorpayPaymentId,
+                        PaymentStatus = o.PaymentStatus,
+                        TotalAmount = o.TotalAmount,
+                        OrderDate = o.OrderDate,
+                    })
+                    .ToListAsync();
+                return Ok(unpaidData);
+            }
+            else
+            {
+                return BadRequest("Invalid status parameter. Use 'Paid' or 'Unpaid'.");
+            }
+        }
 
         [HttpGet("[action]")]
         public async Task<IActionResult> GetInventoryLogs()

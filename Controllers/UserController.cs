@@ -68,6 +68,10 @@ namespace SupplyChain.Controllers
                     OrderId = o.OrderId,
                     OrderDate = o.OrderDate,
                     TotalAmount = o.TotalAmount,
+                    RazorpayOrderId = o.RazorpayOrderId,
+                    RazorpayPaymentId = o.RazorpayPaymentId,
+                    PaidAt = o.PaidAt,
+                    PaymentStatus = o.PaymentStatus,
                     OrderItems = o.OrderItems.Select(oi => new OrderItemDto
                     {
                         ProductId = oi.ProductId,
