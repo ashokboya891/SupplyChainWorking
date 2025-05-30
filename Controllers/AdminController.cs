@@ -6,6 +6,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
+using SupplyChain.Entities;
 using SupplyChain.Models;
 using SupplyChain.Services;
 using System.Data;
@@ -230,44 +231,7 @@ namespace SupplyChain.Controllers
             return Ok(new { user.Id, user.UserName, UpdatedRoles = updatedRoles });
         }
 
-        //[Authorize(policy: "RequireAdminRole")]
-        //[HttpPost("edit-roles/{username}")]
-        //public async Task<IActionResult> EditRoles(string username, [FromQuery] string roles)
-        //{
-        //    if (string.IsNullOrWhiteSpace(roles))
-        //        return BadRequest("You must select at least one role.");
 
-        //    var selectedRoles = roles.Split(',').Select(r => r.Trim()).ToArray();
-
-        //    var user = await _userManager.FindByNameAsync(username);
-        //    if (user == null)
-        //        return NotFound("User not found.");
-
-        //    // Ensure all roles exist
-        //    foreach (var role in selectedRoles)
-        //    {
-        //        if (!await _roleManager.RoleExistsAsync(role))
-        //        {
-        //            var roleResult = await _roleManager.CreateAsync(new IdentityRole(role));
-        //            if (!roleResult.Succeeded)
-        //            {
-        //                return BadRequest($"Failed to create role '{role}': {string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
-        //            }
-        //        }
-        //    }
-
-        //    var currentRoles = await _userManager.GetRolesAsync(user);
-
-        //    var addResult = await _userManager.AddToRolesAsync(user, selectedRoles.Except(currentRoles));
-        //    if (!addResult.Succeeded)
-        //        return BadRequest("Failed to add user to roles.");
-
-        //    var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles.Except(selectedRoles));
-        //    if (!removeResult.Succeeded)
-        //        return BadRequest("Failed to remove user from roles.");
-
-        //    return Ok(await _userManager.GetRolesAsync(user));
-        //}
 
 
         //[Authorize(policy: "RequireAdminRole")]

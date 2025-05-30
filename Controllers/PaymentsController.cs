@@ -37,12 +37,12 @@ namespace SupplyChain.Controllers
             // 2. Create Razorpay order
             RazorpayClient client = new RazorpayClient("rzp_test_QXHInQ5xIrE7dd", "ZkNoeXtH6avmtvSqWmJmksZj");
             var options = new Dictionary<string, object>
-    {
-        { "amount", amountInPaise },
+              {
+            { "amount", amountInPaise },
         { "currency", "INR" },
         { "receipt", Guid.NewGuid().ToString() },
         { "payment_capture", 1 }
-    };
+        };
             var razorpayOrder = client.Order.Create(options);
 
             // 3. Save to DB
