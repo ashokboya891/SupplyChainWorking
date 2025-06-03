@@ -30,6 +30,45 @@ namespace SupplyChain.Controllers
             this._context = context;
         }
 
+        [HttpGet("monthly-sales")]
+        public async Task<IActionResult> GetMonthlySales()
+        {
+            var monthlySalesRaw = await _context.Orders
+             .Where(o => o.PaymentStatus == "Paid")
+            .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
+            .Select(g => new
+                 {
+                  Year = g.Key.Year,
+                 Month = g.Key.Month,
+                 TotalSales = g.Sum(x => x.TotalAmount)
+                 })
+                .OrderBy(g => g.Year).ThenBy(g => g.Month)
+                .ToListAsync();
+
+            // Format month after pulling data into memory
+            var monthlySales = monthlySalesRaw.Select(x => new
+            {
+                Month = $"{x.Month:D2}-{x.Year}",
+                TotalSales = x.TotalSales
+            });
+
+            return Ok(monthlySales);
+
+            //var monthlySales = await _context.Orders
+            //    .Where(o => o.PaymentStatus == "Paid")
+            //    .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
+            //    .Select(g => new
+            //    {
+            //        Month = $"{g.Key.Month}-{g.Key.Year}",
+            //        TotalSales = g.Sum(x => x.TotalAmount)
+            //    })
+            //    .OrderBy(g => g.Month)
+            //    .ToListAsync();
+
+            //return Ok(monthlySales);
+        }
+
+
         [HttpGet("[action]")]
         public async Task<IActionResult> GetPendingRequests()
         {
