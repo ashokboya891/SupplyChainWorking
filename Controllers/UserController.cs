@@ -38,7 +38,7 @@ namespace SupplyChain.Controllers
             {
             new SqlParameter("@UserId", dto.UserId),
             new SqlParameter("@OrderDate", DateTime.Now),
-                OrderService.GetOrderItemsTVP(dto.Items)  // Pass TVP here
+                ProductService.GetOrderItemsTVP(dto.Items)  // Pass TVP here
             };
 
             await _context.Database.ExecuteSqlRawAsync("EXEC PlaceOrder @UserId, @OrderDate, @OrderItems", parameters);

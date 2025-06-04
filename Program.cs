@@ -14,10 +14,15 @@ using System.Text.Json.Serialization;
 using SupplyChain.IServiceContracts;
 using SupplyChain.IRepoContracts;
 using SupplyChain.RepoContracts;
+using OfficeOpenXml; // Make sure this using is present
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
+
+// ✔️ For EPPlus 8+
+//ExcelPackage.License = new OfficeOpenXml.LicenseProvider.NonCommercialLicense();
 
 
 builder.Services.AddTransient<IJwtService, JwtService>();
@@ -83,8 +88,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("con")));
 builder.Services.AddControllers();
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<ICartService,CartService>();   
 builder.Services.AddScoped<ICartRepository,CartRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policyBuilder =>

@@ -52,7 +52,7 @@ namespace SupplyChain.Controllers
         new SqlParameter("@OrderDate", DateTime.Now),
         new SqlParameter("@RazorpayOrderId", razorpayOrder["id"].ToString()),
         new SqlParameter("@PaymentStatus", "Pending"),
-        OrderService.GetOrderItemsTVP(request.Items)
+        ProductService.GetOrderItemsTVP(request.Items)
     };
 
             await _context.Database.ExecuteSqlRawAsync("EXEC PlaceOrder @UserId, @OrderDate, @RazorpayOrderId, @PaymentStatus, @OrderItems", parameters);

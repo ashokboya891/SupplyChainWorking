@@ -10,6 +10,7 @@ using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
 using SupplyChain.ServiceContracts;
 using SupplyChain.Enum;
+using SupplyChain.IServiceContracts;
 
 namespace SupplyChain.Controllers
 {
@@ -23,9 +24,9 @@ namespace SupplyChain.Controllers
         private readonly RoleManager<ApplicationRole> _roleManager;
         private readonly IConfiguration _config;
         private readonly ApplicationDbContext _context;
-
+        private readonly IAccountService _accountService;
         public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
-            RoleManager<ApplicationRole> roleManager, IConfiguration config, IJwtService service,ApplicationDbContext context)
+            RoleManager<ApplicationRole> roleManager, IConfiguration config, IJwtService service,ApplicationDbContext context,IAccountService Accservice)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -33,6 +34,7 @@ namespace SupplyChain.Controllers
             _config = config;
             _jwtService = service;
             this._context = context;
+             this._accountService = Accservice;
         }
         [HttpGet("logout")]
         public async Task<IActionResult> GetLogout()
@@ -49,41 +51,44 @@ namespace SupplyChain.Controllers
             if (ModelState.IsValid == false)
             {
                 string errorMessage = string.Join(" | ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                //Log.Warning("Login validation failed. Errors: {ErrorMessage}", errorMessage);
                 return Problem(errorMessage);
             }
-
-
-            var result = await _signInManager.PasswordSignInAsync(loginDTO.Email, loginDTO.Password, isPersistent: false, lockoutOnFailure: false);
-
-            if (result.Succeeded)
+           var response=await _accountService.Login(loginDTO).ContinueWith(task =>
             {
-                ApplicationUser? user = await _userManager.FindByEmailAsync(loginDTO.Email);
-
-                if (user == null)
+                if (task.IsFaulted)
                 {
-                    return NoContent();
+                    throw task.Exception ?? new Exception("An error occurred during login.");
                 }
+                return task.Result;
+            });
+            return Ok(response);
+            //var result = await _signInManager.PasswordSignInAsync(loginDTO.Email, loginDTO.Password, isPersistent: false, lockoutOnFailure: false);
 
-                //sign-in
-                await _signInManager.SignInAsync(user, isPersistent: false);
+            //if (result.Succeeded)
+            //{
+            //    ApplicationUser? user = await _userManager.FindByEmailAsync(loginDTO.Email);
 
-                var authenticationResponse =await _jwtService.CreateJwtToken(user);
-                var roles = await _userManager.GetRolesAsync(user);
-                authenticationResponse.Roles = roles.ToList();
-                user.UserName = user.UserName;
-                user.RefreshToken = authenticationResponse.RefreshToken;
-                user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
-                await _userManager.UpdateAsync(user);
-                //Log.Warning("Login succeeded but user record not found. Email: {Email}", loginDTO.Email);
-                return Ok(authenticationResponse);
-            }
+            //    if (user == null)
+            //    {
+            //        return NoContent();
+            //    }
 
-            else
-            {
-                //Log.Warning("Login failed for Email: {Email}", loginDTO.Email);
-                return Problem("Invalid email or password");
-            }
+            //    await _signInManager.SignInAsync(user, isPersistent: false);
+
+            //    var authenticationResponse =await _jwtService.CreateJwtToken(user);
+            //    var roles = await _userManager.GetRolesAsync(user);
+            //    authenticationResponse.Roles = roles.ToList();
+            //    user.UserName = user.UserName;
+            //    user.RefreshToken = authenticationResponse.RefreshToken;
+            //    user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
+            //    await _userManager.UpdateAsync(user);
+            //    return Ok(authenticationResponse);
+            //}
+
+            //else
+            //{
+            //    return Problem("Invalid email or password");
+            //}
 
         }
         [HttpPost("Register")]
