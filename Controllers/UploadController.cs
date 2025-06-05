@@ -1,6 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SupplyChain.DatabaseContext;
 using SupplyChain.IServiceContracts;
+using SupplyChain.Models;
+using System.Security.Claims;
 
 namespace SupplyChain.Controllers
 {
@@ -9,9 +13,11 @@ namespace SupplyChain.Controllers
     public class UploadController : ControllerBase
     {
         private readonly IProductService _productService;
-        public UploadController(IProductService productService)
+        private readonly ApplicationDbContext _context;
+        public UploadController(IProductService productService,ApplicationDbContext context)
         {
             _productService = productService;
+            this._context = context;
         }
         [HttpPost("upload-excel")]
         public async Task<IActionResult> UploadExcelFile(IFormFile file)
@@ -30,22 +36,69 @@ namespace SupplyChain.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        //[HttpPost]
-        //[Route("UploadExcelForm")]
 
-        //public async Task<IActionResult> UploadExcelForm(IFormFile excelFile)
-        //{
-        //    if (excelFile == null || excelFile.Length == 0)
-        //    {
-        //        return BadRequest("File Corrupted");
-        //    }
-        //    if (!Path.GetExtension(excelFile.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
-        //    {
-        //        return BadRequest("unsupported  file xlsx is expected\"");
-        //    }
-        //    int count = await countryService.UploadCountriesFromExcelFile(excelFile);
-        //    ViewBag.Message = $"{count} number of countries uploaded";
-        //    return View();
-        //}
+        [HttpPost("save-excel")]
+        public async Task<IActionResult> UploadExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles", userId);
+            if (!Directory.Exists(uploadsFolder))
+                Directory.CreateDirectory(uploadsFolder);
+
+            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Optional: Save file info in DB
+             await _context.UploadedFiles.AddAsync(new UploadedFile { UserId = userId, FileName = uniqueFileName });
+             await _context.SaveChangesAsync();
+
+            return Ok(new { message = "File uploaded successfully", filePath });
+
+            //if (file == null || file.Length == 0)
+            //    return BadRequest("No file uploaded.");
+
+            //var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles");
+
+            //// Create folder if not exists
+            //if (!Directory.Exists(uploadsFolder))
+            //    Directory.CreateDirectory(uploadsFolder);
+
+            //var filePath = Path.Combine(uploadsFolder, file.FileName);
+
+            //// Save the file
+            //using (var stream = new FileStream(filePath, FileMode.Create))
+            //{
+            //    await file.CopyToAsync(stream);
+            //}
+
+            //return Ok(new { message = "File uploaded successfully", filePath });
+        }
+
+        [Authorize]
+        [HttpGet("my-files")]
+        public IActionResult GetMyFiles()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userFolder = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles", userId);
+
+            if (!Directory.Exists(userFolder))
+                return Ok(new List<string>());
+
+            var files = Directory.GetFiles(userFolder)
+                                 .Select(f => Path.GetFileName(f))
+                                 .ToList();
+
+            return Ok(files);
+        }
+
     }
 }

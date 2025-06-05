@@ -18,6 +18,7 @@ namespace SupplyChain.DatabaseContext
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<InventoryLog> InventoryLogs { get; set; }
         public DbSet<RestockRequest> RestockRequests { get; set; }
+        public DbSet<UploadedFile> UploadedFiles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

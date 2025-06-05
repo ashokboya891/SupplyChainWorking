@@ -1,20 +1,21 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using SupplyChain.DatabaseContext;
+using OfficeOpenXml; // Make sure this using is present
 using StocksApi.Middleware;
+using SupplyChain.DatabaseContext;
+using SupplyChain.DatabaseContext;
+using SupplyChain.IRepoContracts;
+using SupplyChain.IServiceContracts;
+using SupplyChain.RepoContracts;
 using SupplyChain.ServiceContracts;
 using SupplyChain.Services;
-using SupplyChain.DatabaseContext;
 using System.Text.Json.Serialization;
-using SupplyChain.IServiceContracts;
-using SupplyChain.IRepoContracts;
-using SupplyChain.RepoContracts;
-using OfficeOpenXml; // Make sure this using is present
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,11 @@ var configuration = builder.Configuration;
 
 // ✔️ For EPPlus 8+
 //ExcelPackage.License = new OfficeOpenXml.LicenseProvider.NonCommercialLicense();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 104857600; // 100 MB
+});
+
 
 
 builder.Services.AddTransient<IJwtService, JwtService>();
