@@ -62,25 +62,6 @@ namespace SupplyChain.Controllers
              await _context.SaveChangesAsync();
 
             return Ok(new { message = "File uploaded successfully", filePath });
-
-            //if (file == null || file.Length == 0)
-            //    return BadRequest("No file uploaded.");
-
-            //var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles");
-
-            //// Create folder if not exists
-            //if (!Directory.Exists(uploadsFolder))
-            //    Directory.CreateDirectory(uploadsFolder);
-
-            //var filePath = Path.Combine(uploadsFolder, file.FileName);
-
-            //// Save the file
-            //using (var stream = new FileStream(filePath, FileMode.Create))
-            //{
-            //    await file.CopyToAsync(stream);
-            //}
-
-            //return Ok(new { message = "File uploaded successfully", filePath });
         }
 
         [Authorize]
@@ -99,6 +80,24 @@ namespace SupplyChain.Controllers
 
             return Ok(files);
         }
+
+        [Authorize]
+        [HttpGet("download-file/{fileName}")]
+        public IActionResult DownloadFile(string fileName)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles", userId, fileName);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found.");
+
+            var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // MIME for .xlsx
+            var fileBytes = System.IO.File.ReadAllBytes(filePath);
+
+            return File(fileBytes, contentType, fileName);
+        }
+
+
 
     }
 }
