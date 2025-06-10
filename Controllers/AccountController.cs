@@ -119,8 +119,7 @@ namespace SupplyChain.Controllers
             {
                 await _roleManager.CreateAsync(new ApplicationRole { Name = UserTypeOptions.User.ToString() });
             }
-            await _userManager.AddToRoleAsync(user, UserTypeOptions.User
-                .ToString());
+            await _userManager.AddToRoleAsync(user, UserTypeOptions.User.ToString());
 
             if (result.Succeeded)
             {

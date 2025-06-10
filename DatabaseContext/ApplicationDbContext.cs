@@ -20,6 +20,10 @@ namespace SupplyChain.DatabaseContext
         public DbSet<RestockRequest> RestockRequests { get; set; }
         public DbSet<UploadedFile> UploadedFiles { get; set; }
 
+        public DbSet<CreateRequest> Requests { get; set; }
+        public DbSet<Approval> Approvals { get; set; }
+        public DbSet<ApprovalComment> ApprovalComments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -55,6 +59,18 @@ namespace SupplyChain.DatabaseContext
                 .HasOne(r => r.Admin)
                 .WithMany(u => u.RestockRequests)
                 .HasForeignKey(r => r.AdminId);
+
+            
+                modelBuilder.Entity<CreateRequest>()
+                    .HasMany(r => r.Approvals)
+                    .WithOne(a => a.Request)
+                    .HasForeignKey(a => a.RequestId);
+
+                modelBuilder.Entity<CreateRequest>().HasMany(r => r.Comments)
+                    .WithOne()
+                    .HasForeignKey(c => c.RequestId);
+            
+
         }
     }
 }

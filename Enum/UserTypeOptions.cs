@@ -2,6 +2,6 @@
 {
     public enum UserTypeOptions
     {
-        User,Admin
+        User,Admin, Finance,HR, IT, Manager, Guest
     }
 }
