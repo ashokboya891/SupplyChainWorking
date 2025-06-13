@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SupplyChain.DatabaseContext;
+using SupplyChain.DTOs;
 using SupplyChain.Enum;
 using SupplyChain.Enum;
 using SupplyChain.IServiceContracts;
@@ -107,12 +108,55 @@ namespace SupplyChain.Controllers
         }
 
 
+        //[Authorize]
+        //[HttpPost("CreateRequest")]
+        //[Consumes("multipart/form-data")] // ✅ Important!
+        //public async Task<IActionResult> CreateRequest([FromForm]string title, [FromForm] IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        return BadRequest("File not uploaded.");
+
+        //    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        //    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "UploadedRequests", userId);
+        //    if (!Directory.Exists(uploadsFolder))
+        //        Directory.CreateDirectory(uploadsFolder);
+
+        //    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+        //    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        //    using (var stream = new FileStream(filePath, FileMode.Create))
+        //    {
+        //        await file.CopyToAsync(stream);
+        //    }
+
+        //    var request = new CreateRequest
+        //    {
+        //        Title = title,
+        //        FileName = uniqueFileName,
+        //        OriginalFileName = file.FileName,
+        //        Status = "Pending",
+        //        CreatedByUserId = userId, // ✅ Save this
+        //        Approvals = new List<Approval>
+        //        {
+        //             new Approval { Role = ApprovalRole.Finance, ApproverId = "Finance", Status = "Pending",Timestamp=DateTime.Now },
+        //             new Approval { Role = ApprovalRole.Manager, ApproverId = "Manager", Status = "null",Timestamp=DateTime.Now},
+        //            new Approval { Role = ApprovalRole.IT, ApproverId = "IT", Status = "null",Timestamp=DateTime.Now }
+        //         }
+        //    };
+
+        //    _context.Requests.Add(request);
+        //    await _context.SaveChangesAsync();
+
+        //    return Ok(request);
+        //}
+
         [Authorize]
         [HttpPost("CreateRequest")]
-        [Consumes("multipart/form-data")] // ✅ Important!
-        public async Task<IActionResult> CreateRequest([FromForm]string title, [FromForm] IFormFile file)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateRequest([FromForm] RequestFormDto model)
         {
-            if (file == null || file.Length == 0)
+            if (model.file == null || model.file.Length == 0)
                 return BadRequest("File not uploaded.");
 
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -121,27 +165,37 @@ namespace SupplyChain.Controllers
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);
 
-            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+            var uniqueFileName = $"{Guid.NewGuid()}_{model.file.FileName}";
             var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
-                await file.CopyToAsync(stream);
+                await model.file.CopyToAsync(stream);
             }
+
+            // 🔄 Dynamically build approval stages
+            var stages = await _context.CategoryApprovalStages
+                .Where(s => s.CategoryId == model.CategoryId)
+                .OrderBy(s => s.StageOrder)
+                .ToListAsync();
+
+            var approvals = stages.Select((stage, index) => new Approval
+            {
+                Role = stage.Role,
+                ApproverId = stage.Role.ToString(),
+                Status = index == 0 ? "Pending" : "null",
+                Timestamp = DateTime.Now
+            }).ToList();
 
             var request = new CreateRequest
             {
-                Title = title,
+                Title = model.Title,
                 FileName = uniqueFileName,
-                OriginalFileName = file.FileName,
+                OriginalFileName = model.file.FileName,
                 Status = "Pending",
-                CreatedByUserId = userId, // ✅ Save this
-                Approvals = new List<Approval>
-                {
-                     new Approval { Role = ApprovalRole.Finance, ApproverId = "Finance", Status = "Pending",Timestamp=DateTime.Now },
-                     new Approval { Role = ApprovalRole.Manager, ApproverId = "Manager", Status = "null",Timestamp=DateTime.Now},
-                    new Approval { Role = ApprovalRole.IT, ApproverId = "IT", Status = "null",Timestamp=DateTime.Now }
-                 }
+                CreatedByUserId = userId,
+                CategoryId = model.CategoryId,
+                Approvals = approvals
             };
 
             _context.Requests.Add(request);
@@ -159,6 +213,8 @@ namespace SupplyChain.Controllers
             var pendingApprovals = await _context.Approvals
                 .Include(a => a.Request)
                     .ThenInclude(r => r.Comments)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.Category) // 👈 Include Category
                 .Where(a => a.Role == parsedRole && a.Status == "Pending")
                 .Select(a => new
                 {
@@ -172,7 +228,8 @@ namespace SupplyChain.Controllers
                         a.Timestamp
                     },
                     RequestTitle = a.Request.Title,
-                    FileName=a.Request.FileName,
+                    FileName = a.Request.FileName,
+                    CategoryName = a.Request.Category.Name, // 👈 Add category name
                     ApprovalHistory = a.Request.Comments
                         .OrderBy(x => x.Timestamp)
                         .Select(x => new
@@ -189,6 +246,50 @@ namespace SupplyChain.Controllers
             return Ok(pendingApprovals);
         }
 
+        //[HttpGet("PendingRequests/{role}")]
+        //public async Task<IActionResult> GetPendingRequestsByRole(string role)
+        //{
+        //    if (!Enum.ApprovalRole.TryParse<ApprovalRole>(role, true, out var parsedRole))
+        //        return BadRequest("Invalid role specified.");
+
+        //    var pendingApprovals = await _context.Approvals
+        //        .Include(a => a.Request)
+        //            .ThenInclude(r => r.Comments)
+        //        .Where(a => a.Role == parsedRole && a.Status == "Pending")
+        //        .Select(a => new
+        //        {
+        //            PendingApproval = new
+        //            {
+        //                a.Id,
+        //                a.RequestId,
+        //                a.Role,
+        //                a.ApproverId,
+        //                a.Status,
+        //                a.Timestamp
+        //            },
+        //            RequestTitle = a.Request.Title,
+        //            FileName=a.Request.FileName,
+        //            ApprovalHistory = a.Request.Comments
+        //                .OrderBy(x => x.Timestamp)
+        //                .Select(x => new
+        //                {
+        //                    x.Role,
+        //                    x.ApproverId,
+        //                    x.Status,
+        //                    x.Comment,
+        //                    x.Timestamp
+        //                })
+        //        })
+        //        .ToListAsync();
+
+        //    return Ok(pendingApprovals);
+        //}
+        [HttpGet("CategoryApprovalStages")]
+        public async Task<IActionResult> GetCategoryApprovalStages()
+        {
+            var stages = await _context.Categories.ToListAsync();
+            return Ok(stages);
+        }
 
         [HttpPost("ApproveOrReject")]
         public async Task<IActionResult> ApproveOrReject(approveOrReject request)
@@ -221,12 +322,36 @@ namespace SupplyChain.Controllers
 
             if (request.action == "Approved")
             {
-                var nextRole = (ApprovalRole)((int)request.role + 1);
-                var nextApproval = await _context.Approvals
-                    .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == nextRole);
-                if (nextApproval != null)
+
+                // Get current request's categoryId and current stage info
+                var currentRequest = approval.Request;
+                var currentStage = await _context.CategoryApprovalStages
+                    .FirstOrDefaultAsync(s => s.CategoryId == currentRequest.CategoryId && s.Role == request.role);
+
+                if (currentStage == null)
+                    return BadRequest("Approval stage not found.");
+
+                // Find the next stage
+                var nextStage = await _context.CategoryApprovalStages
+                    .Where(s => s.CategoryId == currentRequest.CategoryId && s.StageOrder > currentStage.StageOrder)
+                    .OrderBy(s => s.StageOrder)
+                    .FirstOrDefaultAsync();
+
+                //var nextRole = (ApprovalRole)((int)request.role + 1);
+                //var nextApproval = await _context.Approvals
+                //    .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == nextRole);
+
+                if (nextStage != null)
                 {
-                    nextApproval.Status = "Pending";
+                    var nextApproval = await _context.Approvals
+                      .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == nextStage.Role);
+
+                    if (nextApproval != null)
+                    {
+                        nextApproval.Status = "Pending";
+                        nextApproval.Timestamp = DateTime.Now;
+                    }
+                    //nextApproval.Status = "Pending";
                 }
                 else
                 {

@@ -10,6 +10,8 @@
         public string CreatedByUserId { get; set; }  // 👈 Add this
         public List<Approval> Approvals { get; set; } = new();
         public List<ApprovalComment> Comments { get; set; } = new();
-    
+        public int CategoryId { get; set; }
+        public Category Category { get; set; } // Navigation property
+
     }
 }

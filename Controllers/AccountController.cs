@@ -11,6 +11,8 @@ using SupplyChain.DTOs;
 using SupplyChain.ServiceContracts;
 using SupplyChain.Enum;
 using SupplyChain.IServiceContracts;
+using OfficeOpenXml.FormulaParsing.LexicalAnalysis;
+using SupplyChain.Errors;
 
 namespace SupplyChain.Controllers
 {
@@ -44,53 +46,96 @@ namespace SupplyChain.Controllers
         }
 
         [HttpPost("login")]
-        // [Authorize("NotAuthorized")]
-
-        public async Task<IActionResult> PostLogin([FromBody] LoginDTO loginDTO)
+        public async Task<IActionResult> Login(LoginDTO loginDTO)
         {
-            if (ModelState.IsValid == false)
-            {
-                string errorMessage = string.Join(" | ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                return Problem(errorMessage);
-            }
-           var response=await _accountService.Login(loginDTO).ContinueWith(task =>
-            {
-                if (task.IsFaulted)
-                {
-                    throw task.Exception ?? new Exception("An error occurred during login.");
-                }
-                return task.Result;
-            });
-            return Ok(response);
-            //var result = await _signInManager.PasswordSignInAsync(loginDTO.Email, loginDTO.Password, isPersistent: false, lockoutOnFailure: false);
+            // Validate email
+            var user = await _userManager.FindByEmailAsync(loginDTO.Email);
+            if (user == null)
+                return Unauthorized(new ApiResponse(401, "Invalid email or password"));
 
-            //if (result.Succeeded)
-            //{
-            //    ApplicationUser? user = await _userManager.FindByEmailAsync(loginDTO.Email);
+            // Check password
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDTO.Password, false);
+            if (!result.Succeeded)
+                return Unauthorized(new ApiResponse(401, "Invalid email or password"));
 
-            //    if (user == null)
-            //    {
-            //        return NoContent();
-            //    }
+            // Get user roles
+            var roles = await _userManager.GetRolesAsync(user);
 
-            //    await _signInManager.SignInAsync(user, isPersistent: false);
+            // Create JWT + refresh token
+            var authResponse = await _jwtService.CreateJwtToken(user);
+            authResponse.Email = user.Email;
+            authResponse.Roles = roles.ToList();
 
-            //    var authenticationResponse =await _jwtService.CreateJwtToken(user);
-            //    var roles = await _userManager.GetRolesAsync(user);
-            //    authenticationResponse.Roles = roles.ToList();
-            //    user.UserName = user.UserName;
-            //    user.RefreshToken = authenticationResponse.RefreshToken;
-            //    user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
-            //    await _userManager.UpdateAsync(user);
-            //    return Ok(authenticationResponse);
-            //}
+            // Save refresh token info to DB
+            user.RefreshToken = authResponse.RefreshToken;
+            user.RefreshTokenExpirationDateTime = authResponse.RefreshTokenExpirationDateTime;
+            await _userManager.UpdateAsync(user);
 
-            //else
-            //{
-            //    return Problem("Invalid email or password");
-            //}
-
+            return Ok(authResponse);
         }
+
+
+        //[HttpPost("login")]
+        //public async Task<IActionResult> PostLogin([FromBody] LoginDTO loginDTO)
+        //{
+        //    var user = await _userManager.FindByEmailAsync(loginDTO.Email);
+        //    if (user == null) return Unauthorized(new ApiResponse(401));
+        //    var result = await _signInManager.CheckPasswordSignInAsync(user, loginDTO.Password, false);
+        //    if (!result.Succeeded) return Unauthorized(new ApiResponse(401));
+        //    var roles = await _userManager.GetRolesAsync(user);
+
+        //    var twotokens = await _jwtService.CreateJwtToken(user);
+        //    return new AuthenticationResponse
+        //    {
+        //        Email = user.Email,
+        //        Token = await _jwtService.CreateJwtToken(user),
+        //        Roles =roles.ToList(),
+
+        //    };
+        // if (ModelState.IsValid == false)
+        // {
+        //     string errorMessage = string.Join(" | ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+        //     return Problem(errorMessage);
+        // }
+        //var response=await _accountService.Login(loginDTO).ContinueWith(task =>
+        // {
+        //     if (task.IsFaulted)
+        //     {
+        //         //return BadRequest();
+        //         throw task.Exception ?? new Exception("An error occurred during login.");
+        //     }
+        //     return task.Result;
+        // });
+        // return Ok(response);
+        //var result = await _signInManager.PasswordSignInAsync(loginDTO.Email, loginDTO.Password, isPersistent: false, lockoutOnFailure: false);
+
+        //if (result.Succeeded)
+        //{
+        //    ApplicationUser? user = await _userManager.FindByEmailAsync(loginDTO.Email);
+
+        //    if (user == null)
+        //    {
+        //        return NoContent();
+        //    }
+
+        //    await _signInManager.SignInAsync(user, isPersistent: false);
+
+        //    var authenticationResponse =await _jwtService.CreateJwtToken(user);
+        //    var roles = await _userManager.GetRolesAsync(user);
+        //    authenticationResponse.Roles = roles.ToList();
+        //    user.UserName = user.UserName;
+        //    user.RefreshToken = authenticationResponse.RefreshToken;
+        //    user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
+        //    await _userManager.UpdateAsync(user);
+        //    return Ok(authenticationResponse);
+        //}
+
+        //else
+        //{
+        //    return Problem("Invalid email or password");
+        //}
+
+        //}
         [HttpPost("Register")]
         public async Task<IActionResult> PostRegister([FromBody] RegisterDTO registerDTO)
         {
@@ -101,6 +146,10 @@ namespace SupplyChain.Controllers
                 return Problem(errorMessage);
             }
 
+            if (CheckEmailExistsAsync(registerDTO.Email).Result.Value)
+            {
+                return new BadRequestObjectResult(new ApiValidationErrorResponse { Errors = new[] { "Email Address is in Use" } });
+            }
 
             //Create user
             ApplicationUser user = new ApplicationUser()
@@ -126,14 +175,24 @@ namespace SupplyChain.Controllers
                 //sign-in
                 await _signInManager.SignInAsync(user, isPersistent: false);
 
-                var authenticationResponse =await _jwtService.CreateJwtToken(user);
                 var roles = await _userManager.GetRolesAsync(user);
-                authenticationResponse.Roles = roles.ToList();
-                user.RefreshToken = authenticationResponse.RefreshToken;
-                user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
+
+                // Create JWT + refresh token
+                var authResponse = await _jwtService.CreateJwtToken(user);
+                authResponse.Email = user.Email;
+                authResponse.Roles = roles.ToList();
+
+                // Save refresh token info to DB
+                user.RefreshToken = authResponse.RefreshToken;
+                user.RefreshTokenExpirationDateTime = authResponse.RefreshTokenExpirationDateTime;
+                //var authenticationResponse =await _jwtService.CreateJwtToken(user);
+                //var roles = await _userManager.GetRolesAsync(user);
+                //authenticationResponse.Roles = roles.ToList();
+                //user.RefreshToken = authenticationResponse.RefreshToken;
+                //user.RefreshTokenExpirationDateTime = authenticationResponse.RefreshTokenExpirationDateTime;
                 await _userManager.UpdateAsync(user);
 
-                return Ok(authenticationResponse);
+                return Ok(authResponse);
             }
             else
             {
@@ -186,6 +245,11 @@ namespace SupplyChain.Controllers
             await _userManager.UpdateAsync(user);
 
             return Ok(authenticationResponse);
+        }
+        [HttpGet("emailexists")]
+        public async Task<ActionResult<bool>> CheckEmailExistsAsync([FromQuery] string email)
+        {
+            return await _userManager.FindByEmailAsync(email) != null;
         }
     }
 }
