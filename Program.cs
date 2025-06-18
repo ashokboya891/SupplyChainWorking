@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿
+using Core.Interfaces;
+using Infrastructure.Data.Migrations;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -8,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml; // Make sure this using is present
+using StackExchange.Redis;
 using StocksApi.Middleware;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DatabaseContext;
@@ -84,12 +88,21 @@ builder.Services.AddAuthorization(opt =>
 
 });
 
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration = builder.Configuration.GetConnectionString("Redis"); // 👈 Add in appsettings.json
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
+
+
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = "localhost:6379"; // Redis server URL
     options.InstanceName = "SampleInstance_"; // Optional prefix for keys
 });
 
+builder.Services.AddSingleton<IResponseCacheService, ReponseCacheService>();
 // 🔹 Add Database Context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("con")));
@@ -101,6 +114,8 @@ builder.Services.AddScoped<ICartService,CartService>();
 builder.Services.AddScoped<ICartRepository,CartRepository>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+//builder.Services.AddScoped<IResponseCacheService, ReponseCacheService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policyBuilder =>

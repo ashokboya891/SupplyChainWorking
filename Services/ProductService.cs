@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Core.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml;
 using SupplyChain.DTOs;
@@ -14,9 +15,9 @@ namespace SupplyChain.Services
     {
 
         private readonly IProductRepository _productRepository;
-        public ProductService(IProductRepository ProductRepository) 
+        public ProductService(IProductRepository ProductRepository)
         {
-            _productRepository =  ProductRepository; // Assuming you have a concrete implementation of IProductRepository
+            _productRepository = ProductRepository; // Assuming you have a concrete implementation of IProductRepository
         }
 
 
@@ -59,6 +60,12 @@ namespace SupplyChain.Services
                     string? stockStr = worksheet.Cells[row, 2].Value?.ToString();
                     string? thresholdStr = worksheet.Cells[row, 3].Value?.ToString();
                     string? priceStr = worksheet.Cells[row, 4].Value?.ToString();
+                    string? Description = worksheet.Cells[row, 5].Value?.ToString();
+                    string? ProductBrandId = worksheet.Cells[row, 6].Value?.ToString();
+                    string? ProductTypeId = worksheet.Cells[row, 7].Value?.ToString();
+
+
+
 
                     if (!string.IsNullOrWhiteSpace(name) &&
                         int.TryParse(stockStr, out int currentStock) &&
@@ -70,7 +77,10 @@ namespace SupplyChain.Services
                             Name = name,
                             CurrentStock = currentStock,
                             Threshold = threshold,
-                            Price = price
+                            Price = price,
+                            Description = Description ??    "not added description", // Ensure Description is not null
+                            ProductBrandId = int.TryParse(ProductBrandId, out int brandId) ? brandId : 0,
+                            ProductTypeId = int.TryParse(ProductTypeId, out int typeId) ? typeId : 0
                         };
 
                         await _productRepository.AddProductAsync(newProduct);
