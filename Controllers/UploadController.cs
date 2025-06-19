@@ -388,23 +388,62 @@ namespace SupplyChain.Controllers
             //        approval.Request.Status = "Approved";
             //    }
             //}
+            //else if (request.action == "Rejected")
+            //{
+            //    //var currentRequest = approval.Request.Id-1;
+            //    //var PreviousStage = await _context.Approvals
+            //    //  .FirstOrDefaultAsync(s => s.Id == currentRequest);
+
+            //    var prevRole = (ApprovalRole)((int)request.role - 1);
+            //    var previousApproval = await _context.Approvals
+            //        .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == prevRole);
+
+            //    if (previousApproval != null)
+            //    {
+            //        previousApproval.Status = "Pending";
+            //        previousApproval.Timestamp = DateTime.MinValue;
+            //    }
+
+            //    approval.Request.Status = "Rejected";
+            //}
+
+            //await _context.SaveChangesAsync();
+            //return Ok("Action recorded.");
             else if (request.action == "Rejected")
             {
-                var prevRole = (ApprovalRole)((int)request.role - 1);
-                var previousApproval = await _context.Approvals
-                    .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == prevRole);
+                var currentRequest = approval.Request;
 
-                if (previousApproval != null)
+                // Get current stage
+                var currentStage = await _context.CategoryApprovalStages
+                    .FirstOrDefaultAsync(s => s.CategoryId == currentRequest.CategoryId && s.Role == request.role);
+
+                if (currentStage == null)
+                    return BadRequest("Current stage not found.");
+
+                // Get previous stage
+                var previousStage = await _context.CategoryApprovalStages
+                    .Where(s => s.CategoryId == currentRequest.CategoryId && s.StageOrder < currentStage.StageOrder)
+                    .OrderByDescending(s => s.StageOrder)
+                    .FirstOrDefaultAsync();
+
+                if (previousStage != null)
                 {
-                    previousApproval.Status = "Pending";
-                    previousApproval.Timestamp = DateTime.MinValue;
+                    var previousApproval = await _context.Approvals
+                        .FirstOrDefaultAsync(a => a.RequestId == request.requestId && a.Role == previousStage.Role);
+
+                    if (previousApproval != null)
+                    {
+                        previousApproval.Status = "Pending";
+                        previousApproval.Timestamp = DateTime.Now;
+                    }
                 }
 
+                // Mark request and current approval as Rejected
                 approval.Request.Status = "Rejected";
             }
-
             await _context.SaveChangesAsync();
             return Ok("Action recorded.");
+
         }
     }
 }

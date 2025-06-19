@@ -175,32 +175,78 @@ namespace SupplyChain.Controllers
         //}
 
 
+        //[HttpPost("verify")]
+        //public async Task<IActionResult> VerifyPayment([FromBody] RazorpayVerifyDto data)
+        //{
+        //    var key = "ZkNoeXtH6avmtvSqWmJmksZj";
+        //    string generatedSignature = GenerateSignature(data.razorpay_order_id + "|" + data.razorpay_payment_id, key);
+
+        //    if (generatedSignature == data.razorpay_signature)
+        //    {
+        //        var order = await _context.Orders
+        //            .FirstOrDefaultAsync(o => o.RazorpayOrderId == data.razorpay_order_id);
+
+        //        if (order == null)
+        //            return NotFound("Order not found");
+
+        //        order.PaymentStatus = "Paid";
+        //        order.RazorpayPaymentId = data.razorpay_payment_id;
+        //        order.RazorpaySignature = data.razorpay_signature;
+        //        order.PaidAt = DateTime.Now;
+
+        //        await _context.SaveChangesAsync();
+
+        //        return Ok(new { status = "success" });
+        //    }
+
+        //    return BadRequest(new { status = "failed" });
+        //}
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyPayment([FromBody] RazorpayVerifyDto data)
         {
-            var key = "ZkNoeXtH6avmtvSqWmJmksZj";
+            var key = "ZkNoeXtH6avmtvSqWmJmksZj"; // Replace with your Razorpay key secret
             string generatedSignature = GenerateSignature(data.razorpay_order_id + "|" + data.razorpay_payment_id, key);
+
+            var order = await _context.Orders
+                .Include(o => o.OrderItems) // If you want to return items in response
+                .FirstOrDefaultAsync(o => o.RazorpayOrderId == data.razorpay_order_id);
+
+            if (order == null)
+                return NotFound(new { status = "OrderNotFound" });
 
             if (generatedSignature == data.razorpay_signature)
             {
-                var order = await _context.Orders
-                    .FirstOrDefaultAsync(o => o.RazorpayOrderId == data.razorpay_order_id);
-
-                if (order == null)
-                    return NotFound("Order not found");
-
-                order.PaymentStatus = "Paid";
+                order.PaymentStatus = "PAID";
                 order.RazorpayPaymentId = data.razorpay_payment_id;
                 order.RazorpaySignature = data.razorpay_signature;
                 order.PaidAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { status = "success" });
+                return Ok(new
+                {
+                    paymentStatus = order.PaymentStatus,
+                    razorpayOrderId = order.RazorpayOrderId,
+                    razorpayPaymentId = order.RazorpayPaymentId,
+                    orderId = order.OrderId,
+                    paidAt = order.PaidAt,
+                    totalAmount = order.TotalAmount,
+                    //orderItems = order.OrderItems.Select(x => new
+                    //{
+                    //    x.Product.Name,
+                    //    x.Quantity,
+                    //    x.UnitPrice
+                    //})
+                });
             }
 
-            return BadRequest(new { status = "failed" });
+            return BadRequest(new
+            {
+                paymentStatus = "FAILED",
+                message = "Invalid signature or tampered data"
+            });
         }
+
 
         private string GenerateSignature(string text, string secret)
         {

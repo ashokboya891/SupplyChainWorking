@@ -36,7 +36,7 @@ namespace SupplyChain.Controllers
         //}
 
         [HttpGet("[action]")]
-        [Cached(600)]
+        //[Cached(600)]
         public async Task<IActionResult> GetProducts([FromQuery] ProductQueryParams queryParams)
         {
             var query = _context.Products
@@ -180,17 +180,17 @@ namespace SupplyChain.Controllers
         //    return Ok(products);
         //}
 
-        [HttpGet("types")]
-        public async Task<ActionResult<List<ProductType>>> GetTypes(int typeId)
-        {
-            return await _context.ProductTypes.Include(p => p.Products).Where(o => o.Id == typeId).ToListAsync();
-        }
+        //[HttpGet("types")]
+        //public async Task<ActionResult<List<ProductType>>> GetTypes(int typeId)
+        //{
+        //    return await _context.ProductTypes.Include(p => p.Products).Where(o => o.Id == typeId).ToListAsync();
+        //}
 
-        [HttpGet("brands")]
-        public async Task<ActionResult<List<ProductBrand>>> GetBrands(int brandId)
-        {
-            return await _context.ProductBrands.Include(p=>p.Products).Where(o=>o.Id == brandId).ToListAsync();
-        }
+        //[HttpGet("brands")]
+        //public async Task<ActionResult<List<ProductBrand>>> GetBrands(int brandId)
+        //{
+        //    return await _context.ProductBrands.Include(p=>p.Products).Where(o=>o.Id == brandId).ToListAsync();
+        //}
 
 
         [HttpPost("place-order")]
@@ -245,6 +245,25 @@ namespace SupplyChain.Controllers
                 .ToList();
 
             return Ok(orders);
+        }
+
+        [Cached(600)]
+        [HttpGet("brands")]
+        // 
+        public async Task<ActionResult<IReadOnlyList<ProductBrand>>> GetProductBrands()
+        {
+            return Ok(await _context.ProductBrands.ToListAsync());
+
+        }
+
+
+        [Cached(600)]
+        [HttpGet("types")]
+        // 
+        public async Task<ActionResult<IReadOnlyList<ProductBrand>>> GetTypesBrands()
+        {
+            return Ok(await _context.ProductTypes.ToListAsync());
+
         }
     }
 }

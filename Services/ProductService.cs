@@ -27,6 +27,9 @@ namespace SupplyChain.Services
             table.Columns.Add("ProductId", typeof(int));
             table.Columns.Add("Quantity", typeof(int));
             table.Columns.Add("UnitPrice", typeof(decimal));
+            //table.Columns.Add("UnitPrice", typeof(decimal));
+            //table.Columns.Add("UnitPrice", typeof(decimal));
+
 
             foreach (var item in items)
             {

@@ -25,7 +25,8 @@ namespace SupplyChain.Controllers
                 ProductId = request.ProductId,
                 Quantity = request.Quantity,
                 ProductName = request.ProductName,
-                UnitPrice = request.UnitPrice
+                UnitPrice = request.UnitPrice,
+                //Description = request.Description,
             });
 
             return Ok("Added to cart");
