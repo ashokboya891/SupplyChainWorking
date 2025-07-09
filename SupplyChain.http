@@ -1,0 +1,6 @@
+@SupplyChain_HostAddress = http://localhost:5286
+
+GET {{SupplyChain_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
