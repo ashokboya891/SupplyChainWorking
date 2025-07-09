@@ -74,7 +74,7 @@ namespace SupplyChain.Controllers
 
             string deviceInfo = userAgent ?? "Unknown Device";
 
-            string msg = $"🔔 Supply Chain Login Alert: '{username}' logged into your account using device: {deviceInfo} at {DateTime.Now}";
+            string msg = $"🔔 Supply Chain Login Alert: '{username}' \n logged into your account using device: {deviceInfo} at {DateTime.Now}";
 
             _rabbitMQ.Publish("login-queue", msg);
 

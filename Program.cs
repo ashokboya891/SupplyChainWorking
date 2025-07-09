@@ -120,6 +120,8 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
 
 builder.Services.AddHostedService<RabbitMQConsumerService>();
+builder.Services.AddHostedService<RabbitMQLoginConsumerService>();
+
 
 
 builder.Services.AddCors(options =>
