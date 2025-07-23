@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
 using SupplyChain.Entities;
+using SupplyChain.Enum;
 using SupplyChain.Models;
 using SupplyChain.Services;
 using System.Data;
@@ -14,7 +15,7 @@ using System.Security.Claims;
 
 namespace SupplyChain.Controllers
 {
-    [Authorize(policy: "RequireAdminRole")]
+    //[Authorize(policy: "RequireAdminRole")]
     [Route("api/[controller]")]
     [ApiController]
     public class AdminController : ControllerBase
@@ -23,7 +24,7 @@ namespace SupplyChain.Controllers
         private readonly RoleManager<ApplicationRole> _roleManager;
         private readonly ApplicationDbContext _context;
 
-        public AdminController(UserManager<ApplicationUser> user, RoleManager<ApplicationRole> roleManager,ApplicationDbContext context)
+        public AdminController(UserManager<ApplicationUser> user, RoleManager<ApplicationRole> roleManager, ApplicationDbContext context)
         {
             this._userManager = user;
             _roleManager = roleManager;
@@ -37,11 +38,11 @@ namespace SupplyChain.Controllers
              .Where(o => o.PaymentStatus == "Paid")
             .GroupBy(o => new { o.OrderDate.Year, o.OrderDate.Month })
             .Select(g => new
-                 {
-                  Year = g.Key.Year,
-                 Month = g.Key.Month,
-                 TotalSales = g.Sum(x => x.TotalAmount)
-                 })
+            {
+                Year = g.Key.Year,
+                Month = g.Key.Month,
+                TotalSales = g.Sum(x => x.TotalAmount)
+            })
                 .OrderBy(g => g.Year).ThenBy(g => g.Month)
                 .ToListAsync();
 
@@ -73,7 +74,7 @@ namespace SupplyChain.Controllers
         public async Task<IActionResult> GetPendingRequests()
         {
             var result = await _context.RestockRequests
-             .Where(r => r.Status=="Pending").Select(r => new RestockRequestDto
+             .Where(r => r.Status == "Pending").Select(r => new RestockRequestDto
              {
                  RequestId = r.RequestId,
                  Status = r.Status,
@@ -81,7 +82,7 @@ namespace SupplyChain.Controllers
                  ProductName = r.Product.Name,
                  ProductId = r.ProductId,
                  threshold = r.Product.Threshold,
-                 CreatedDate=r.CreatedDate
+                 CreatedDate = r.CreatedDate
              })
                 .OrderByDescending(r => r.RequestId)
                 .ToListAsync();
@@ -134,9 +135,9 @@ namespace SupplyChain.Controllers
         [HttpGet("[action]")]
         public async Task<IActionResult> GetPaidUnpaidTransactions(string status)
         {
-            if(status!=null && status=="Paid")
+            if (status != null && status == "Paid")
             {
-                var paidData=await _context.Orders.Where(o => o.PaymentStatus == "Paid").Include(o => o.OrderItems)
+                var paidData = await _context.Orders.Where(o => o.PaymentStatus == "Paid").Include(o => o.OrderItems)
                     .Select(o => new OrderDto
                     {
                         OrderId = o.OrderId,
@@ -146,8 +147,8 @@ namespace SupplyChain.Controllers
                         PaymentStatus = o.PaymentStatus,
                         TotalAmount = o.TotalAmount,
                         OrderDate = o.OrderDate,
-                        PaidAt=o.PaidAt,
-                        OrderItems= o.OrderItems.Select(oi => new OrderItemDto
+                        PaidAt = o.PaidAt,
+                        OrderItems = o.OrderItems.Select(oi => new OrderItemDto
                         {
                             ProductId = oi.ProductId,
                             Quantity = oi.Quantity,
@@ -314,5 +315,139 @@ namespace SupplyChain.Controllers
         // var roles =   await _userManager.GetRolesAsync();
         //    return roles;
         //}
+
+
+        [HttpGet("GetTicketById/{id}")]
+        public async Task<IActionResult> GetTicketById(int id)
+        {
+            var ticket = await _context.Requests
+                .Include(r => r.Approvals)
+                .Include(r => r.Comments)
+                .Include(r => r.Category)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (ticket == null)
+                return NotFound();
+
+            return Ok(ticket);
+        }
+
+
+        [HttpGet("PendingAndCreatedRequests/{role}")]
+        public async Task<IActionResult> GetPendingAndCreatedRequests(string role)
+        {
+            //if (!Enum.ApprovalRole.TryParse<ApprovalRole>(role, true, out var parsedRole))
+
+            if (!Enum.ApprovalRole.TryParse<ApprovalRole>(role, true, out var parsedRole))
+                return BadRequest("Invalid role specified.");
+
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(currentUserId))
+                return Unauthorized();
+
+            // 1. Requests that are pending for the current approver
+            var pendingApprovals = await _context.Approvals
+                .Include(a => a.Request).ThenInclude(r => r.Comments)
+                .Include(a => a.Request).ThenInclude(r => r.Category)
+                .Where(a => a.Role == parsedRole && a.Status == "Pending" && a.ApproverId == currentUserId)
+                .Select(a => new
+                {
+                    Type = "PendingApproval",
+                    a.Id,
+                    a.RequestId,
+                    a.Role,
+                    a.ApproverId,
+                    a.Status,
+                    a.Timestamp,
+                    RequestTitle = a.Request.Title,
+                    FileName = a.Request.FileName,
+                    CategoryName = a.Request.Category.Name,
+                    CreatedBy = a.Request.CreatedByUserId,
+                    ApprovalHistory = a.Request.Comments
+                        .OrderBy(c => c.Timestamp)
+                        .Select(c => new
+                        {
+                            c.Role,
+                            c.ApproverId,
+                            c.Status,
+                            c.Comment,
+                            c.Timestamp
+                        })
+                })
+                .ToListAsync();
+
+            // 2. Requests created by the current user (admin2)
+            var createdRequests = await _context.Requests
+                .Include(r => r.Category)
+                .Include(r => r.Approvals)
+                .Include(r => r.Comments)
+                .Where(r => r.CreatedByUserId == currentUserId)
+                .Select(r => new
+                {
+                    Type = "CreatedRequest",
+                    r.Id,
+                    r.Title,
+                    r.FileName,
+                    CategoryName = r.Category.Name,
+                    Status = r.Status,
+                    ApprovalSteps = r.Approvals
+                        .OrderBy(a => a.Timestamp)
+                        .Select(a => new
+                        {
+                            a.Role,
+                            a.ApproverId,
+                            a.Status,
+                            a.Timestamp
+                        }),
+                    Comments = r.Comments
+                        .OrderBy(c => c.Timestamp)
+                        .Select(c => new
+                        {
+                            c.Role,
+                            c.ApproverId,
+                            c.Comment,
+                            c.Status,
+                            c.Timestamp
+                        })
+                })
+                .ToListAsync();
+
+            // Combine both
+            var result = pendingApprovals.Cast<object>().ToList();
+            result.AddRange(createdRequests);
+
+            return Ok(result);
+        }
+
+
+
+        //[HttpGet("getAdminTickets/{adminId}")]
+        //public async Task<IActionResult> getAdminTickets(string adminId)
+        //{
+        //    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+
+
+        //var approvals = _context.Approvals
+        //    .Join(_context.Requests,
+        //          approval => approval.RequestId,
+        //          request => request.Id,
+        //          (approval, request) => new { approval, request })
+        //    .Where(joined => joined.request.CreatedByUserId == userId)
+        //    .Select(joined => joined.approval)
+        //    .ToList();
+        //return Ok(approvals);
+
+        //        var approvals = _context.Approvals
+        //.Where(a => _context.Requests.Include(i => i.Comments)
+        //    .Where(r => r.CreatedByUserId == userId)
+        //    .Select(r => r.Id)
+        //    .Contains(a.RequestId))
+        //.ToList();
+        //        return Ok(approvals);
+        //    }
+
+
+
     }
 }

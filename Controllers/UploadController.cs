@@ -2,11 +2,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Asn1.Ocsp;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
 using SupplyChain.Enum;
 using SupplyChain.Enum;
+using SupplyChain.HubsCollection;
 using SupplyChain.IServiceContracts;
 using SupplyChain.Models;
 using System.Security.Claims;
@@ -18,12 +21,15 @@ namespace SupplyChain.Controllers
     [ApiController]
     public class UploadController : ControllerBase
     {
+        private readonly IHubContext<TicketHub> _hubContext;
         private readonly IProductService _productService;
         private readonly ApplicationDbContext _context;
-        public UploadController(IProductService productService,ApplicationDbContext context)
+        public UploadController(IProductService productService,ApplicationDbContext context, IHubContext<TicketHub> hubContext)
         {
             _productService = productService;
             this._context = context;
+            _hubContext = hubContext;
+
         }
         [HttpPost("upload-excel")]
         public async Task<IActionResult> UploadExcelFile(IFormFile file)
@@ -87,8 +93,10 @@ namespace SupplyChain.Controllers
             return Ok(files);
         }
 
-        //[Authorize]
+        [Authorize]
         [HttpGet("download-file/{fileName}")]
+        //[("multipart/form-data")]
+
         public IActionResult DownloadFile(string fileName)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -372,8 +380,12 @@ namespace SupplyChain.Controllers
                     {
                         return NotFound("Source file not found.");
                     }
+                    await _hubContext.Clients.Group("AdminGroup").SendAsync("ReceiveTicketUpdate", request.requestId);
+                    //await _hubContext.Clients.All.SendAsync("ReceiveTicketUpdate", request.requestId);
+
+                    //await _hubContext.Clients.All.SendAsync("ReceiveTicketUpdate", request.requestId);
                 }
-                
+
             }
 
             //if (action == "Approved")
@@ -440,6 +452,12 @@ namespace SupplyChain.Controllers
 
                 // Mark request and current approval as Rejected
                 approval.Request.Status = "Rejected";
+
+                // ✅ 2. Notify SignalR clients
+                await _hubContext.Clients.Group("AdminGroup").SendAsync("ReceiveTicketUpdate", request.requestId);
+
+                //await _hubContext.Clients.All.SendAsync("ReceiveTicketUpdate", request.requestId);
+
             }
             await _context.SaveChangesAsync();
             return Ok("Action recorded.");

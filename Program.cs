@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -16,166 +17,205 @@ using StocksApi.Middleware;
 using SupplyChain.BG;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DatabaseContext;
+using SupplyChain.HubsCollection;
 using SupplyChain.IRepoContracts;
 using SupplyChain.IServiceContracts;
 using SupplyChain.RepoContracts;
 using SupplyChain.ServiceContracts;
 using SupplyChain.Services;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 
 
-var builder = WebApplication.CreateBuilder(args);
-
-var configuration = builder.Configuration;
-
-// ✔️ For EPPlus 8+
-//ExcelPackage.License = new OfficeOpenXml.LicenseProvider.NonCommercialLicense();
-builder.Services.Configure<FormOptions>(options =>
+internal class Program
 {
-    options.MultipartBodyLengthLimit = 104857600; // 100 MB
-});
-
-
-
-builder.Services.AddTransient<IJwtService, JwtService>();
-// 🔹 Add Controllers with JSON format support
-builder.Services.AddControllers(opt =>
-{
-    opt.Filters.Add(new ProducesAttribute("application/json"));
-    opt.Filters.Add(new ConsumesAttribute("application/json"));
-}).AddXmlSerializerFormatters().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-});
-
-
-builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(opt =>
-{
-    opt.Password.RequiredLength = 5;
-    opt.Password.RequireNonAlphanumeric = false;
-
-    opt.Password.RequireUppercase = false;
-    opt.Password.RequireLowercase = true;
-    opt.Password.RequireDigit = true;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders()
-.AddUserStore<UserStore<ApplicationUser, ApplicationRole,ApplicationDbContext, Guid>>()
-.AddRoleStore<RoleStore<ApplicationRole, ApplicationDbContext, Guid>>();
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+    private static void Main(string[] args)
     {
-        ValidateAudience = true,
-        ValidAudience = configuration["Jwt:Audience"],
-        ValidateIssuer = true,
-        ValidIssuer = configuration["Jwt:Issuer"],
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
-    };
-});
+        var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAuthorization(opt =>
-{
-    opt.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
-    opt.AddPolicy("ModeratePhotoRole", policy => policy.RequireRole("Admin", "User"));
+        var configuration = builder.Configuration;
 
-});
-
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-{
-    var configuration = builder.Configuration.GetConnectionString("Redis"); // 👈 Add in appsettings.json
-    return ConnectionMultiplexer.Connect(configuration);
-});
-
-
-
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = "localhost:6379"; // Redis server URL
-    options.InstanceName = "SampleInstance_"; // Optional prefix for keys
-});
-
-builder.Services.AddSingleton<IResponseCacheService, ReponseCacheService>();
-// 🔹 Add Database Context
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("con")));
-builder.Services.AddControllers();
-builder.Services.AddTransient<ExceptionHandlingMiddleware>();
-builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-builder.Services.AddScoped<ICartService,CartService>();   
-builder.Services.AddScoped<ICartRepository,CartRepository>();
-builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-//builder.Services.AddScoped<IResponseCacheService, ReponseCacheService>();
-
-builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
-
-builder.Services.AddHostedService<RabbitMQConsumerService>();
-builder.Services.AddHostedService<RabbitMQLoginConsumerService>();
-
-
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
-    {
-        policyBuilder.WithOrigins(configuration.GetSection("AllowedOrigins").Get<string[]>())
-                     .AllowAnyHeader()
-                     .AllowAnyMethod();
-    });
-});
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    var securitySchema = new OpenApiSecurityScheme
-    {
-        Description = "JWT Auth Bearer Scheme",
-        Name = "Authorisation",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        Reference = new OpenApiReference
+        // ✔️ For EPPlus 8+
+        //ExcelPackage.License = new OfficeOpenXml.LicenseProvider.NonCommercialLicense();
+        builder.Services.Configure<FormOptions>(options =>
         {
-            Type = ReferenceType.SecurityScheme,
-            Id = "Bearer"
-        }
+            options.MultipartBodyLengthLimit = 104857600; // 100 MB
+        });
 
-    };
-    c.AddSecurityDefinition("Bearer", securitySchema);
-    var securityRequirement = new OpenApiSecurityRequirement
+
+
+        builder.Services.AddTransient<IJwtService, JwtService>();
+        // 🔹 Add Controllers with JSON format support
+        builder.Services.AddControllers(opt =>
+        {
+            opt.Filters.Add(new ProducesAttribute("application/json"));
+            opt.Filters.Add(new ConsumesAttribute("application/json"));
+        }).AddXmlSerializerFormatters().AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        });
+
+
+        builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(opt =>
+        {
+            opt.Password.RequiredLength = 5;
+            opt.Password.RequireNonAlphanumeric = false;
+
+            opt.Password.RequireUppercase = false;
+            opt.Password.RequireLowercase = true;
+            opt.Password.RequireDigit = true;
+        })
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders()
+        .AddUserStore<UserStore<ApplicationUser, ApplicationRole, ApplicationDbContext, Guid>>()
+        .AddRoleStore<RoleStore<ApplicationRole, ApplicationDbContext, Guid>>();
+
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateAudience = true,
+                ValidAudience = configuration["Jwt:Audience"],
+                ValidateIssuer = true,
+                ValidIssuer = configuration["Jwt:Issuer"],
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(configuration["Jwt:Key"])),
+
+
+                NameClaimType = ClaimTypes.NameIdentifier
+
+            };
+            // ✅ Required for SignalR WebSocket authentication
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
                 {
+                    var accessToken = context.Request.Query["access_token"];
+
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/tickethub"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+        builder.Services.AddAuthorization(opt =>
+        {
+            opt.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
+            opt.AddPolicy("ModeratePhotoRole", policy => policy.RequireRole("Admin", "User"));
+
+        });
+
+        builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            var configuration = builder.Configuration.GetConnectionString("Redis"); // 👈 Add in appsettings.json
+            return ConnectionMultiplexer.Connect(configuration);
+        });
+
+
+
+        builder.Services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = "localhost:6379"; // Redis server URL
+            options.InstanceName = "SampleInstance_"; // Optional prefix for keys
+        });
+
+        builder.Services.AddSingleton<IResponseCacheService, ReponseCacheService>();
+        // 🔹 Add Database Context
+        builder.Services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseSqlServer(configuration.GetConnectionString("con")));
+        builder.Services.AddControllers();
+        builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+        builder.Services.AddScoped<IAccountService, AccountService>();
+        builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+        builder.Services.AddScoped<ICartService, CartService>();
+        builder.Services.AddScoped<ICartRepository, CartRepository>();
+        builder.Services.AddScoped<IProductService, ProductService>();
+        builder.Services.AddScoped<IProductRepository, ProductRepository>();
+        //builder.Services.AddScoped<IResponseCacheService, ReponseCacheService>();
+
+        builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
+
+        builder.Services.AddHostedService<RabbitMQConsumerService>();
+        builder.Services.AddHostedService<RabbitMQLoginConsumerService>();
+
+
+
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowSpecificOrigins", policyBuilder =>
+            {
+                policyBuilder.WithOrigins(configuration.GetSection("AllowedOrigins").Get<string[]>())
+                             .AllowAnyHeader()
+                             .AllowAnyMethod()
+                            .AllowCredentials(); // ✅ REQUIRED for SignalR 
+
+
+            });
+        });
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(c =>
+        {
+            var securitySchema = new OpenApiSecurityScheme
+            {
+                Description = "JWT Auth Bearer Scheme",
+                Name = "Authorisation",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = "Bearer",
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+
+            };
+            c.AddSecurityDefinition("Bearer", securitySchema);
+            var securityRequirement = new OpenApiSecurityRequirement
+                        {
                     {
                         securitySchema,new[] {"Bearer"}
                     }
-                };
-    c.AddSecurityRequirement(securityRequirement);
-}); ;
+                        };
+            c.AddSecurityRequirement(securityRequirement);
+        }); ;
 
-var app = builder.Build();
+        builder.Services.AddSignalR().AddHubOptions<TicketHub>(options =>
+        {
+            options.ClientTimeoutInterval = TimeSpan.FromMinutes(10);
+        });
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+        var app = builder.Build();
+
+
+        // Configure the HTTP request pipeline.
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+        app.UseRouting();
+        app.UseCors("AllowSpecificOrigins"); // 🔹 Use Named CORS Policy
+        app.UseAuthentication();
+
+        app.UseAuthorization();
+
+        app.MapHub<TicketHub>("/tickethub");
+
+        app.UseHttpsRedirection();
+
+
+        app.MapControllers();
+
+        app.Run();
+    }
 }
-app.UseRouting();
-app.UseCors("AllowSpecificOrigins"); // 🔹 Use Named CORS Policy
-
-app.UseHttpsRedirection();
-app.UseAuthentication();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
