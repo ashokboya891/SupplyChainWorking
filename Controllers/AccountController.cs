@@ -76,7 +76,7 @@ namespace SupplyChain.Controllers
 
             string msg = $"🔔 Supply Chain Login Alert: '{username}' \n logged into your account using device: {deviceInfo} at {DateTime.Now}";
 
-            _rabbitMQ.Publish("login-queue", msg);
+            //_rabbitMQ.Publish("login-queue", msg);
 
 
 

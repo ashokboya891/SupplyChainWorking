@@ -9,6 +9,7 @@ using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
 using SupplyChain.IServiceContracts;
 using SupplyChain.Services;
+using System.Security.Claims;
 
 
 
@@ -229,9 +230,22 @@ namespace SupplyChain.Controllers
                 await _context.SaveChangesAsync();
 
 
-                string username = User.Identity?.Name ?? "Unknown";
-                string msg = $"✅ Payment by '{username}' was successful at {DateTime.Now}";
-                _rabbitMQ.Publish("payment-queue", msg);
+
+                var message = new PaymentNotificationMessage
+                {
+                    SenderUsername = User.Identity?.Name ?? "Unknown",
+                    SenderEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "unknown@unknown.com",
+                    ReceiverEmail = "aboya375@gmail.com",
+                    OrderId = data.razorpay_order_id,
+                    Timestamp = DateTime.UtcNow,
+                    Context= $"✅ Payment by '{User.Identity?.Name ?? "Unknown"}' was successful at {DateTime.Now}"
+                };
+
+                //string username = User.Identity?.Name ?? "Unknown";
+                //string msg = $"✅ Payment by '{username}' was successful at {DateTime.Now}";
+                //string msg = message;
+                _rabbitMQ.Publish("payment-queue", message);
+
                 return Ok(new
                 {
                     paymentStatus = order.PaymentStatus,

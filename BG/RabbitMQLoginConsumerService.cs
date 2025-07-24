@@ -10,14 +10,14 @@ namespace SupplyChain.BG
         private IModel _channel;
         private readonly MailService _mailService;
 
-        public RabbitMQLoginConsumerService()
+        public RabbitMQLoginConsumerService(MailService mailService)
         {
             var factory = new ConnectionFactory() { HostName = "localhost" };
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
             _channel.QueueDeclare(queue: "login-queue", durable: false, exclusive: false, autoDelete: false);
 
-            _mailService = new MailService(); // 👈 create instance
+            _mailService = mailService;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)

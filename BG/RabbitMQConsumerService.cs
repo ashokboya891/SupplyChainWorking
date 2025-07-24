@@ -1,6 +1,9 @@
-﻿using RabbitMQ.Client;
+﻿using MailKit;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using SupplyChain.DTOs;
 using System.Text;
+using System.Text.Json;
 
 namespace SupplyChain.BG
 {
@@ -10,14 +13,14 @@ namespace SupplyChain.BG
         private IModel _channel;
         private readonly MailService _mailService;
 
-        public RabbitMQConsumerService()
+        public RabbitMQConsumerService(MailService mailService)
         {
             var factory = new ConnectionFactory() { HostName = "localhost" };
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
             _channel.QueueDeclare(queue: "payment-queue", durable: false, exclusive: false, autoDelete: false);
 
-            _mailService = new MailService(); // 👈 create instance
+            _mailService = mailService;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -27,14 +30,45 @@ namespace SupplyChain.BG
             consumer.Received += async (model, ea) =>
             {
                 var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
+                var json = Encoding.UTF8.GetString(body);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"📥 Received message: {message}");
+                Console.WriteLine($"📥 Received message: {json}");
                 Console.ResetColor();
 
-                await _mailService.SendEmailAsync("aboya375@gmail.com", "New Payment Received", message);
+                // Deserialize the message back to object
+                var message = JsonSerializer.Deserialize<PaymentNotificationMessage>(json);
+
+                if (message != null)
+                {
+                    // Send email to sender
+                    await _mailService.SendEmailAsync(
+                        message.SenderEmail,
+                        "✅ Payment Confirmation",
+                        $"Hi {message.SenderUsername}, your payment for Order ID {message.OrderId} was successful at {message.Timestamp}."
+                    );
+
+                    // Send email to receiver (fixed merchant)
+                    await _mailService.SendEmailAsync(
+                        message.ReceiverEmail,
+                        "💰 New Payment Received",
+                        $"You received a payment of Order ID {message.OrderId} from {message.SenderUsername} at {message.Timestamp}."
+                    );
+                }
             };
+
+
+            //consumer.Received += async (model, ea) =>
+            //{
+            //    var body = ea.Body.ToArray();
+            //    var message = Encoding.UTF8.GetString(body);
+
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine($"📥 Received message: {message}");
+            //    Console.ResetColor();
+
+            //    await _mailService.SendEmailAsync("aboya375@gmail.com", "New Payment Received", message);
+            //};
 
             _channel.BasicConsume(queue: "payment-queue", autoAck: true, consumer: consumer);
             return Task.CompletedTask;

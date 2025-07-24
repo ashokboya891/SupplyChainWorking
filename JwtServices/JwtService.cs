@@ -29,8 +29,10 @@ namespace SupplyChain.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Email),
-                new Claim(ClaimTypes.Name, user.PersonName),
+                new Claim(ClaimTypes.NameIdentifier, Convert.ToString(user.Id)),
+                //new Claim(ClaimTypes.NameIdentifier, user.Email),
+                new Claim(ClaimTypes.Name, user.UserName),
+                //new Claim(ClaimTypes.NameIdentifier, user.Id)
                 new Claim(ClaimTypes.Email, user.Email)
             };
 

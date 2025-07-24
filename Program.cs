@@ -17,6 +17,7 @@ using StocksApi.Middleware;
 using SupplyChain.BG;
 using SupplyChain.DatabaseContext;
 using SupplyChain.DatabaseContext;
+using SupplyChain.DTOs;
 using SupplyChain.HubsCollection;
 using SupplyChain.IRepoContracts;
 using SupplyChain.IServiceContracts;
@@ -79,6 +80,7 @@ internal class Program
         {
             options.TokenValidationParameters = new TokenValidationParameters
             {
+        
                 ValidateAudience = true,
                 ValidAudience = configuration["Jwt:Audience"],
                 ValidateIssuer = true,
@@ -86,9 +88,10 @@ internal class Program
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(configuration["Jwt:Key"])),
+                NameClaimType = ClaimTypes.Name, // this ensures User.Identity.Name uses ClaimTypes.Name
+                RoleClaimType = ClaimTypes.Role,
 
-
-                NameClaimType = ClaimTypes.NameIdentifier
+                //NameClaimType = ClaimTypes.NameIdentifier
 
             };
             // ✅ Required for SignalR WebSocket authentication
@@ -147,7 +150,9 @@ internal class Program
 
         builder.Services.AddHostedService<RabbitMQConsumerService>();
         builder.Services.AddHostedService<RabbitMQLoginConsumerService>();
-
+        builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+        builder.Services.AddSingleton<MailService>();
+        builder.Services.AddHostedService<RabbitMQConsumerService>();
 
 
         builder.Services.AddCors(options =>
