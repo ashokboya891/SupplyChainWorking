@@ -177,12 +177,12 @@ namespace SupplyChain.Controllers
 
             IdentityResult result = await _userManager.CreateAsync(user, registerDTO.Password);
             // Assign the "User" role
-            var roleExist = await _roleManager.RoleExistsAsync(UserTypeOptions.User.ToString());
+            var roleExist = await _roleManager.RoleExistsAsync(UserTypeOptions.Moderator.ToString());
             if (!roleExist)
             {
-                await _roleManager.CreateAsync(new ApplicationRole { Name = UserTypeOptions.User.ToString() });
+                await _roleManager.CreateAsync(new ApplicationRole { Name = UserTypeOptions.Moderator.ToString() });
             }
-            await _userManager.AddToRoleAsync(user, UserTypeOptions.User.ToString());
+            await _userManager.AddToRoleAsync(user, UserTypeOptions.Moderator.ToString());
 
             if (result.Succeeded)
             {

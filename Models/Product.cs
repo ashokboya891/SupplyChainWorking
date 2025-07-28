@@ -26,6 +26,8 @@ namespace SupplyChain.Models
         public ICollection<InventoryLog> InventoryLogs { get; set; }
         public ICollection<OrderItem> OrderItems { get; set; }
         public ICollection<RestockRequest> RestockRequests { get; set; }
+        public ICollection<ProductPhoto> Photos { get; set; } = new List<ProductPhoto>();
+
         //[Key]
         //public int ProductId { get; set; }
         //public string Name { get; set; }

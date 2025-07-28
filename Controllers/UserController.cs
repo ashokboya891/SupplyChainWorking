@@ -41,7 +41,8 @@ namespace SupplyChain.Controllers
         {
             var query = _context.Products
                 .Include(p => p.ProductType)
-                .Include(p => p.ProductBrand)
+                .Include(p => p.ProductBrand).
+                Include(p=>p.Photos)
                 .AsQueryable();
 
             // Search
@@ -77,6 +78,18 @@ namespace SupplyChain.Controllers
                 .ToListAsync();
 
             // 🔁 Manual Mapping to DTO
+            //var data = products.Select(p => new ProductToReturnDto
+            //{
+            //    Id = p.ProductId,
+            //    Name = p.Name,
+            //    Description = p.Description,
+            //    Price = p.Price,
+            //    ProductBrand = p.ProductBrand?.Name,
+            //    ProductType = p.ProductType?.Name,
+            //    CurrentStock = p.CurrentStock.ToString(), // Assuming CurrentStock is a property of Product
+            //    PrimaryImageUrl = p.Photos.FirstOrDefault(photo => photo.IsPrimary).Url,
+            //    AllImages = p.Photos.Select(photo => photo.Url).ToList()
+            //}).ToList();
             var data = products.Select(p => new ProductToReturnDto
             {
                 Id = p.ProductId,
@@ -85,8 +98,12 @@ namespace SupplyChain.Controllers
                 Price = p.Price,
                 ProductBrand = p.ProductBrand?.Name,
                 ProductType = p.ProductType?.Name,
-                CurrentStock = p.CurrentStock.ToString() // Assuming CurrentStock is a property of Product
+                CurrentStock = p.CurrentStock.ToString(),
+
+                PrimaryImageUrl = p.Photos.FirstOrDefault(photo => photo.IsPrimary)?.Url,
+                AllImages = p.Photos.Select(photo => photo.Url).ToList()
             }).ToList();
+
 
             var result = new
             {

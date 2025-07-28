@@ -1,7 +1,9 @@
 ﻿using Core.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using SupplyChain.DatabaseContext;
 using SupplyChain.DTOs;
 using SupplyChain.IRepoContracts;
 using SupplyChain.IServiceContracts;
@@ -13,10 +15,11 @@ namespace SupplyChain.Services
 {
     public class ProductService:IProductService
     {
-
+        private readonly ApplicationDbContext _context;
         private readonly IProductRepository _productRepository;
-        public ProductService(IProductRepository ProductRepository)
+        public ProductService(IProductRepository ProductRepository,ApplicationDbContext con)
         {
+            _context = con;
             _productRepository = ProductRepository; // Assuming you have a concrete implementation of IProductRepository
         }
 
@@ -94,6 +97,72 @@ namespace SupplyChain.Services
 
             return productsInserted;
 
+        }
+
+
+        public async Task<ProductToReturnDto> GetProductByIdAsync(int id)
+        {
+            var product = await _productRepository.GetProductByIdAsync(id);
+            if (product == null) return null;
+
+            return new ProductToReturnDto
+            {
+                Id = product.ProductId,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                ProductBrand = product.ProductBrand?.Name,
+                ProductType = product.ProductType?.Name,
+                CurrentStock = product.CurrentStock.ToString(),
+                PrimaryImageUrl = product.Photos?.FirstOrDefault(p => p.IsPrimary)?.Url,
+                AllImages = product.Photos?.Select(p => p.Url).ToList()
+            };
+        }
+
+        public async Task<bool> AddProduct(Product product)
+        {
+            await _productRepository.AddProductAsync(product);
+            return await _productRepository.SaveChangesAsync();
+        }
+
+        public async Task<bool> UpdateProductAsync(Product product)
+        {
+            await _productRepository.UpdateProductAsync(product);
+            return await _productRepository.SaveChangesAsync();
+        }
+
+        public async Task<bool> DeleteProductAsync(int id)
+        {
+            var product = await _productRepository.GetProductByIdAsync(id);
+            if (product == null) return false;
+
+            await _productRepository.DeleteProductAsync(product);
+            return await _productRepository.SaveChangesAsync();
+        }
+        public async Task<ProductMetaDataDto> GetProductMetaDataAsync()
+        {
+            var brands = await _context.ProductBrands
+                .Select(b => new BrandDto { Id = b.Id, Name = b.Name })
+                .ToListAsync();
+
+            var types = await _context.ProductTypes
+                .Select(t => new TypeDto { Id = t.Id, Name = t.Name })
+                .ToListAsync();
+
+            return new ProductMetaDataDto
+            {
+                Brands = brands,
+                Types = types
+            };
+        }
+        public async Task<Product> GetProductEntityByIdAsync(int id)
+        {
+            return await _context.Products.FirstOrDefaultAsync(p => p.ProductId == id);
+        }
+
+        public async Task<Product> GetProductPhotosByIdAsync(int id)
+        {
+            return await _context.Products.Include(p=>p.Photos).FirstOrDefaultAsync(p => p.ProductId == id);
         }
 
     }

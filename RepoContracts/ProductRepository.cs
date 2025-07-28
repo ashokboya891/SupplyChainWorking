@@ -1,6 +1,7 @@
 using Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using SupplyChain.DatabaseContext;
+using SupplyChain.DTOs;
 using SupplyChain.Models;
 
 namespace Infrastructure.Data.Migrations
@@ -49,6 +50,35 @@ namespace Infrastructure.Data.Migrations
             }
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<Product> GetProductByIdAsync(int id)
+        {
+            return await _context.Products
+                       .Include(p => p.ProductType)
+                       .Include(p => p.ProductBrand)
+                       .Include(p => p.Photos)
+                       .FirstOrDefaultAsync(p => p.ProductId == id);
+        }
+
+        public async Task AddProduct(Product product)
+        {
+            await _context.Products.AddAsync(product);
+        }
+
+        public async Task UpdateProductAsync(Product product)
+        {
+            _context.Products.Update(product);
+        }
+
+        public async Task DeleteProductAsync(Product product)
+        {
+            _context.Products.Remove(product);
+        }
+
+        public async Task<bool> SaveChangesAsync()
+        {
+            return await _context.SaveChangesAsync() > 0;
         }
     }
 }

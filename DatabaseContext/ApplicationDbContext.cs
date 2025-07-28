@@ -30,11 +30,14 @@ namespace SupplyChain.DatabaseContext
 
         public DbSet<ProductType> ProductTypes { get; set; }
         public DbSet<ProductBrand> ProductBrands { get; set; }
+        public DbSet<ProductPhoto> ProductPhotos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Product>()
+             .ToTable(tb => tb.HasTrigger("trg_CheckStockAfterUpdate"));
 
             // Optional Fluent Configurations (if needed)
             modelBuilder.Entity<OrderItem>()
@@ -76,6 +79,11 @@ namespace SupplyChain.DatabaseContext
                 modelBuilder.Entity<CreateRequest>().HasMany(r => r.Comments)
                     .WithOne()
                     .HasForeignKey(c => c.RequestId);
+
+            modelBuilder.Entity<ProductPhoto>()
+                    .HasOne(p => p.Product)
+                    .WithMany(p => p.Photos)
+                    .HasForeignKey(p => p.ProductId);
 
             modelBuilder.Entity<Category>().HasData(
                    new Category { Id = 1, Name = "Hardware" },
@@ -129,7 +137,83 @@ namespace SupplyChain.DatabaseContext
                 new Product { ProductId = 18, Name = "Dining Table Set", Description = "4-seater modern dining set", Price = 7999, CurrentStock = 8, Threshold = 2, ProductTypeId = 2, ProductBrandId = 2 },
                 new Product { ProductId = 19, Name = "English Grammar Book", Description = "Comprehensive English grammar reference", Price = 349, CurrentStock = 55, Threshold = 10, ProductTypeId = 3, ProductBrandId = 3 },
                 new Product { ProductId = 20, Name = "Toaster", Description = "2-slice toaster with browning control", Price = 999, CurrentStock = 22, Threshold = 5, ProductTypeId = 4, ProductBrandId = 4 }
-);
+            );
+
+            modelBuilder.Entity<ProductPhoto>().HasData(
+                 new ProductPhoto
+                  {
+                     PhotoId = 1,
+                     ProductId = 1,
+                     Url = "https://res.cloudinary.com/your-cloud/image/upload/v162876/wireless_mouse.jpg",
+                     PublicId = "wireless_mouse",
+                     IsPrimary = true
+                 },
+                 new ProductPhoto
+                        {
+                            PhotoId = 2,
+                            ProductId = 7,
+                            Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422073/SupplyChain/bluetooth-speaker_egazpg.webp",
+                            PublicId = "bluetooth-speaker_egazpg",
+                            IsPrimary = true
+                  },
+                  new ProductPhoto
+                      {
+                          PhotoId = 3,
+                          ProductId = 2,
+                          Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422073/SupplyChain/keyboard_qisjqv.webp",
+                          PublicId = "keyboard_qisjqv",
+                          IsPrimary = true
+                      },
+                   new ProductPhoto
+                    {
+                                        PhotoId = 4,
+                                        ProductId = 20,
+                                        Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422073/SupplyChain/toaster_ujtplk.webp",
+                                        PublicId = "toaster_ujtplk",
+                                        IsPrimary = true
+                    },
+                    new ProductPhoto
+                    {
+                                PhotoId = 5,
+                                ProductId = 19,
+                                Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422073/SupplyChain/english_siabfk.webp",
+                                PublicId = "english_siabfk",
+                                IsPrimary = true
+                    },
+                    new ProductPhoto
+                    {
+                                PhotoId = 6,
+                                ProductId = 16,
+                                Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422073/SupplyChain/kettle_bbamzn.webp",
+                                PublicId = "kettle_bbamzn",
+                                IsPrimary = true
+                                
+                    },
+                  new ProductPhoto
+                  {
+                                 PhotoId = 7,
+                                 ProductId = 19,
+                                 Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1753422072/SupplyChain/dinnig_dk4dxi.webp",
+                                 PublicId = "dinnig_dk4dxi",
+                                 IsPrimary = true
+                  },
+                  new ProductPhoto
+                  {
+                                 PhotoId = 8,
+                                 ProductId = 15,
+                                 Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1692335025/SupplyChain/cld-sample-5.jpg",
+                                 PublicId = "cld-sample-3",
+                                 IsPrimary = true
+                  },
+                          new ProductPhoto
+                          {
+                              PhotoId = 9,
+                              ProductId = 16,
+                              Url = "https://res.cloudinary.com/dtryjgzaj/image/upload/v1692335024/SupplyChain/cld-sample-4.jpg",
+                              PublicId = "cld-sample-4",
+                              IsPrimary = true
+                          }
+            );
 
 
         }

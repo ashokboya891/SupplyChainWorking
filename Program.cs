@@ -1,4 +1,5 @@
 ﻿
+using API.Helpers;
 using Core.Interfaces;
 using Infrastructure.Data.Migrations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -131,12 +132,13 @@ internal class Program
             options.Configuration = "localhost:6379"; // Redis server URL
             options.InstanceName = "SampleInstance_"; // Optional prefix for keys
         });
-
+        builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
         builder.Services.AddSingleton<IResponseCacheService, ReponseCacheService>();
         // 🔹 Add Database Context
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("con")));
         builder.Services.AddControllers();
+        builder.Services.AddScoped<IPhotoService, PhotoService>();
         builder.Services.AddTransient<ExceptionHandlingMiddleware>();
         builder.Services.AddScoped<IAccountService, AccountService>();
         builder.Services.AddScoped<IAccountRepository, AccountRepository>();
